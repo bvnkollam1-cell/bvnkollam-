@@ -64,6 +64,18 @@
         v.style.display = "none";
         document.getElementById("loading-fallback").style.display = "block";
       });
+      // Let the splash video play through fully (10s) at least once before
+      // revealing the app, even if Firebase data finishes loading sooner.
+      var MIN_SPLASH_MS = 10000;
+      var minTimeDone = false, dataReady = false;
+      function tryReveal(){
+        if (minTimeDone && dataReady) {
+          var el = document.getElementById("fb-loading");
+          if (el) el.style.display = "none";
+        }
+      }
+      setTimeout(function(){ minTimeDone = true; tryReveal(); }, MIN_SPLASH_MS);
+      window.hideLoadingScreen = function(){ dataReady = true; tryReveal(); };
     })();
   </script>
   <div id="root"></div>
@@ -101,10 +113,10 @@
             setSchoolData(prev => ({ ...prev, ...loaded }));
           }
           setReady(true);
-          document.getElementById("fb-loading").style.display = "none";
+          window.hideLoadingScreen();
         }).catch(() => {
           setReady(true);
-          document.getElementById("fb-loading").style.display = "none";
+          window.hideLoadingScreen();
         });
       }, []);
       return { schools, setSchools, schoolData, setSchoolData, subjects, setSubjects, users, setUsers, ready };
