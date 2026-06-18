@@ -221,24 +221,22 @@ const sumStrength = (strength) => {
 
 const fmtNum = (n) => Number(n).toLocaleString("en-IN");
 
-// Auto-calculate a teacher's current total experience (in years) from their
-// joining year (years served in this school) + any previous experience
-// they had before joining. Recalculates live off the current calendar year.
+// Auto-calculate a teacher's current experience (in years) purely from
+// their joining year. Previous experience (before joining) is NOT added —
+// recalculates live off the current calendar year.
 const calcTeacherExp = (t) => {
   const joinYear = parseInt(t?.joinYear, 10);
-  const prevExp = parseFloat(t?.prevExp) || 0;
-  if (!joinYear || isNaN(joinYear)) return prevExp;
+  if (!joinYear || isNaN(joinYear)) return null;
   const currentYear = new Date().getFullYear();
-  const yearsHere = Math.max(0, currentYear - joinYear);
-  return Math.round((yearsHere + prevExp) * 10) / 10;
+  return Math.max(0, currentYear - joinYear);
 };
-const fmtExp = (n) => (n > 0 ? `${n} yr` : "—");
+const fmtExp = (n) => (n === null || n === undefined ? "—" : `${n} yr`);
 // Sort teachers (with their original array index preserved) by current
-// experience, most experienced first.
+// experience, most experienced first. Teachers without a join year sort last.
 const sortTeachersByExp = (teachers) =>
   teachers
     .map((t, idx) => ({ t, idx }))
-    .sort((a, b) => calcTeacherExp(b.t) - calcTeacherExp(a.t));
+    .sort((a, b) => (calcTeacherExp(b.t) ?? -1) - (calcTeacherExp(a.t) ?? -1));
 
 // ─── Styles ───────────────────────────────────────────────────────────────
 const css = `
@@ -2617,7 +2615,7 @@ function TeachersPage({ data, onUpdate, subjects }) {
             <div className="form-group">
               <label>ഇപ്പോഴുള്ള എക്സ്പീരിയൻസ് (Auto-calculated)</label>
               <div style={{ padding:"9px 12px", background:COLORS.bg, borderRadius:8, fontWeight:700, color:COLORS.primary, border:`1px solid ${COLORS.primary}33` }}>
-                {calcTeacherExp(form)} വർഷം
+                {calcTeacherExp(form) === null ? "—" : `${calcTeacherExp(form)} വർഷം`}
               </div>
             </div>
           </div>
