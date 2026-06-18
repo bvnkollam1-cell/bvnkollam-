@@ -221,6 +221,25 @@ const sumStrength = (strength) => {
 
 const fmtNum = (n) => Number(n).toLocaleString("en-IN");
 
+// Auto-calculate a teacher's current total experience (in years) from their
+// joining year (years served in this school) + any previous experience
+// they had before joining. Recalculates live off the current calendar year.
+const calcTeacherExp = (t) => {
+  const joinYear = parseInt(t?.joinYear, 10);
+  const prevExp = parseFloat(t?.prevExp) || 0;
+  if (!joinYear || isNaN(joinYear)) return prevExp;
+  const currentYear = new Date().getFullYear();
+  const yearsHere = Math.max(0, currentYear - joinYear);
+  return Math.round((yearsHere + prevExp) * 10) / 10;
+};
+const fmtExp = (n) => (n > 0 ? `${n} yr` : "—");
+// Sort teachers (with their original array index preserved) by current
+// experience, most experienced first.
+const sortTeachersByExp = (teachers) =>
+  teachers
+    .map((t, idx) => ({ t, idx }))
+    .sort((a, b) => calcTeacherExp(b.t) - calcTeacherExp(a.t));
+
 // ─── Styles ───────────────────────────────────────────────────────────────
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Malayalam:wght@400;600;700&display=swap');
@@ -1539,16 +1558,18 @@ function printAllTeachersReport(schools, schoolData) {
     const teachers = (schoolData[s.id]?.teachers || []);
     totalTeachers += teachers.length;
     if (teachers.length === 0) return `<div class="school-block"><h3>${si+1}. ${s.name}</h3><p style="color:#999;font-size:12px">അധ്യാപകരെ ചേർത്തിട്ടില്ല</p></div>`;
-    const rows = teachers.map((t,i) => `
+    const sorted = sortTeachersByExp(teachers);
+    const rows = sorted.map(({t},i) => `
       <tr class="${i%2===0?"":"alt"}">
         <td>${i+1}</td><td><b>${t.name}</b></td><td>${t.phone||"—"}</td>
         <td>${t.joinYear||"—"}</td><td>${t.prevExp?t.prevExp+" yr":"—"}</td>
+        <td><b>${fmtExp(calcTeacherExp(t))}</b></td>
         <td>${t.trained?"✅":"❌"}</td>
         <td style="text-align:left;font-size:11px">${(t.subjects||[]).join(", ")||"—"}</td>
       </tr>`).join("");
     return `<div class="school-block">
       <h3>${si+1}. ${s.name} <span style="color:#666;font-size:12px;font-weight:400">(${s.code} · ${teachers.length} Teachers)</span></h3>
-      <table><thead><tr><th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Exp</th><th>Trained</th><th>Subjects</th></tr></thead>
+      <table><thead><tr><th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Prev Exp</th><th>Current Exp</th><th>Trained</th><th>Subjects</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }).join("");
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/>
@@ -1603,8 +1624,8 @@ function printSchoolReport(school, data) {
   // Teachers list
   const teachers = data.teachers || [];
   const teacherRows = teachers.length > 0
-    ? teachers.map((t,i)=>`<tr class="${i%2===0?"":"alt"}"><td>${i+1}</td><td><b>${t.name}</b></td><td>${t.phone||"—"}</td><td>${t.joinYear||"—"}</td><td>${t.prevExp?t.prevExp+" yr":"—"}</td><td>${t.trained?"✅ Trained":"❌"}</td><td>${(t.subjects||[]).join(", ")||"—"}</td></tr>`).join("")
-    : `<tr><td colspan="7" style="color:#999">അധ്യാപകരെ ചേർത്തിട്ടില്ല</td></tr>`;
+    ? sortTeachersByExp(teachers).map(({t},i)=>`<tr class="${i%2===0?"":"alt"}"><td>${i+1}</td><td><b>${t.name}</b></td><td>${t.phone||"—"}</td><td>${t.joinYear||"—"}</td><td>${t.prevExp?t.prevExp+" yr":"—"}</td><td><b>${fmtExp(calcTeacherExp(t))}</b></td><td>${t.trained?"✅ Trained":"❌"}</td><td>${(t.subjects||[]).join(", ")||"—"}</td></tr>`).join("")
+    : `<tr><td colspan="8" style="color:#999">അധ്യാപകരെ ചേർത്തിട്ടില്ല</td></tr>`;
 
   // Samithi list
   const samithi = data.samithi || [];
@@ -1708,7 +1729,7 @@ function printSchoolReport(school, data) {
 
     <h3>അധ്യാപകർ (${teachers.length})</h3>
     <table>
-      <thead><tr><th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Exp</th><th>Training</th><th>Subjects</th></tr></thead>
+      <thead><tr><th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Prev Exp</th><th>Current Exp</th><th>Training</th><th>Subjects</th></tr></thead>
       <tbody>${teacherRows}</tbody>
     </table>
 
@@ -2593,6 +2614,12 @@ function TeachersPage({ data, onUpdate, subjects }) {
               <label>Previous Experience (years)</label>
               <input className="form-control" type="number" min="0" value={form.prevExp} onChange={e=>setForm(f=>({...f,prevExp:e.target.value}))} placeholder="0" />
             </div>
+            <div className="form-group">
+              <label>ഇപ്പോഴുള്ള എക്സ്പീരിയൻസ് (Auto-calculated)</label>
+              <div style={{ padding:"9px 12px", background:COLORS.bg, borderRadius:8, fontWeight:700, color:COLORS.primary, border:`1px solid ${COLORS.primary}33` }}>
+                {calcTeacherExp(form)} വർഷം
+              </div>
+            </div>
           </div>
           <div className="form-group" style={{ marginTop:8 }}>
             <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
@@ -2625,23 +2652,24 @@ function TeachersPage({ data, onUpdate, subjects }) {
           <table>
             <thead>
               <tr>
-                <th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Exp</th><th>Training</th><th>Subjects</th><th>Actions</th>
+                <th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Prev Exp</th><th>Current Exp</th><th>Training</th><th>Subjects</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {teachers.map((t,i) => (
-                <tr key={t.id||i} style={{ background: i%2===0?"#fff":COLORS.bg }}>
+              {sortTeachersByExp(teachers).map(({t, idx}, i) => (
+                <tr key={t.id||idx} style={{ background: i%2===0?"#fff":COLORS.bg }}>
                   <td style={{ color:COLORS.primary, fontWeight:700 }}>{i+1}</td>
                   <td style={{ fontWeight:600, color:COLORS.navBg }}>{t.name}</td>
                   <td>{t.phone || "—"}</td>
                   <td>{t.joinYear || "—"}</td>
                   <td>{t.prevExp ? `${t.prevExp} yr` : "—"}</td>
+                  <td style={{ fontWeight:700, color:COLORS.primary }}>{fmtExp(calcTeacherExp(t))}</td>
                   <td>{t.trained ? <span className="badge badge-success">✅ Trained</span> : <span className="badge badge-draft">❌ Untrained</span>}</td>
                   <td style={{ fontSize:12 }}>{(t.subjects||[]).join(", ") || "—"}</td>
                   <td>
                     <div className="btn-group">
-                      <button className="btn btn-secondary btn-sm" onClick={()=>edit(i)}>✏️</button>
-                      <button className="btn btn-danger btn-sm" onClick={()=>del(i)}>🗑️</button>
+                      <button className="btn btn-secondary btn-sm" onClick={()=>edit(idx)}>✏️</button>
+                      <button className="btn btn-danger btn-sm" onClick={()=>del(idx)}>🗑️</button>
                     </div>
                   </td>
                 </tr>
@@ -2820,6 +2848,7 @@ function TeacherReportsPage({ schools, schoolData, subjects }) {
         <td>${t.phone||"—"}</td>
         <td>${t.joinYear||"—"}</td>
         <td>${t.prevExp?t.prevExp+" yr":"—"}</td>
+        <td><b>${fmtExp(calcTeacherExp(t))}</b></td>
         <td>${t.trained?"✅ Trained":"❌ Untrained"}</td>
         <td>${(t.subjects||[]).join(", ")||"—"}</td>
         <td>${t.schoolName}</td>
@@ -2842,9 +2871,9 @@ function TeacherReportsPage({ schools, schoolData, subjects }) {
     </div>
       <p>${selSubject} അധ്യാപകർ · ${new Date().toLocaleDateString("en-IN")} · ${filtered.length} Teachers</p>
       <table>
-        <thead><tr><th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Exp</th><th>Training</th><th>Subjects</th><th>School</th></tr></thead>
+        <thead><tr><th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Prev Exp</th><th>Current Exp</th><th>Training</th><th>Subjects</th><th>School</th></tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot><tr><td colspan="8"><b>ആകെ: ${filtered.length} അധ്യാപകർ</b></td></tr></tfoot>
+        <tfoot><tr><td colspan="9"><b>ആകെ: ${filtered.length} അധ്യാപകർ</b></td></tr></tfoot>
       </table>
       <div style="text-align:center;margin-top:24px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#888">Designed and Developed By ManikandanPattazhy@7012324523,9961309017</div>
       </body></html>`);
@@ -2879,7 +2908,7 @@ function TeacherReportsPage({ schools, schoolData, subjects }) {
       ) : (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Exp</th><th>Training</th><th>Other Subjects</th><th>School</th></tr></thead>
+            <thead><tr><th>#</th><th>പേര്</th><th>ഫോൺ</th><th>Join Year</th><th>Prev Exp</th><th>Current Exp</th><th>Training</th><th>Other Subjects</th><th>School</th></tr></thead>
             <tbody>
               {filtered.map((t,i)=>(
                 <tr key={i} style={{ background:i%2===0?"#fff":COLORS.bg }}>
@@ -2888,6 +2917,7 @@ function TeacherReportsPage({ schools, schoolData, subjects }) {
                   <td>{t.phone||"—"}</td>
                   <td>{t.joinYear||"—"}</td>
                   <td>{t.prevExp?`${t.prevExp} yr`:"—"}</td>
+                  <td style={{ fontWeight:700, color:COLORS.primary }}>{fmtExp(calcTeacherExp(t))}</td>
                   <td>{t.trained?<span className="badge badge-success">✅ Trained</span>:<span className="badge badge-draft">❌ Untrained</span>}</td>
                   <td style={{ fontSize:12 }}>{(t.subjects||[]).filter(s=>s!==selSubject).join(", ")||"—"}</td>
                   <td style={{ fontSize:12, fontWeight:600 }}>{t.schoolName}</td>
