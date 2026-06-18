@@ -42,14 +42,30 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   
   <style>
-    #fb-loading { position:fixed;inset:0;background:#1C2A40;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:sans-serif;z-index:9999; }
+    #fb-loading { position:fixed;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:sans-serif;z-index:9999; }
+    #fb-loading video { width:min(300px, 72vw); display:block; }
     #fb-loading .om { font-size:56px;animation:pulse 1.5s infinite; }
-    #fb-loading p { margin-top:16px;font-size:15px;opacity:0.7; }
+    #fb-loading p { margin-top:14px;font-size:14px;opacity:0.6;letter-spacing:0.3px; }
     @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
   </style>
 </head>
 <body>
-  <div id="fb-loading"><div class="om">ॐ</div><p>Loading BVN SIMS...</p></div>
+  <div id="fb-loading">
+    <video id="loading-video" autoplay muted loop playsinline preload="auto">
+      <source src="loading.mp4" type="video/mp4" />
+    </video>
+    <div id="loading-fallback" class="om" style="display:none;">ॐ</div>
+    <p>Loading BVN SIMS...</p>
+  </div>
+  <script>
+    (function(){
+      var v = document.getElementById("loading-video");
+      v.addEventListener("error", function(){
+        v.style.display = "none";
+        document.getElementById("loading-fallback").style.display = "block";
+      });
+    })();
+  </script>
   <div id="root"></div>
   <script id="jsx-source" type="text/jsx-source">
 
